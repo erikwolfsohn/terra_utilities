@@ -2,6 +2,7 @@ version 1.0
 
 workflow fetch_sra_to_fastq {
   input {
+    String sample_id
     String? srr_accession
     String? wgs_id
     Int CPUs = 8
@@ -9,6 +10,7 @@ workflow fetch_sra_to_fastq {
 
   call fastq_dl_sra {
     input:
+      sample_id = sample_id,
       srr_accession=srr_accession,
       wgs_id=wgs_id,
       CPUs=CPUs
@@ -22,6 +24,7 @@ workflow fetch_sra_to_fastq {
 
 task fastq_dl_sra {
   input {
+    String sample_id
     String? srr_accession
     String? wgs_id
     Int CPUs
@@ -56,27 +59,26 @@ task fastq_dl_sra {
       mv "${output}.fastq.gz" "${output}_1.fastq.gz"
     fi
 
-    echo -e 'read1\tread2' >> outfile.tsv
-    echo *.fastq.gz | tr [:blank:] '\t' >> outfile.tsv
+    if [[ -f "~{srr_accession}_1.fastq.gz" ]];
+    then
+      mv -v "~{srr_accession}_1.fastq.gz" "~{sample_id}_1.fastq.gz"
+    elif [[ -f "${output}_1.fastq.gz" ]];
+    then
+      mv -v "${output}_1.fastq.gz" "~{sample_id}_1.fastq.gz"
+    fi
 
-    python3 <<CODE
-    import csv
-    with open("./outfile.tsv",'r') as tsv_file:
-      tsv_reader=csv.reader(tsv_file, delimiter="\t")
-      tsv_data=list(tsv_reader)
-      tsv_dict=dict(zip(tsv_data[0], tsv_data[1]))
-      with open ("READ1",'wt') as read_1:
-        read_1_string=tsv_dict['read1']
-        read_1.write(read_1_string)
-      with open ("READ2",'wt') as read_2:
-        read_2_string=tsv_dict['read2']
-        read_2.write(read_2_string)
-    CODE
-  >>>
+    if [[ -f "~{srr_accession}_2.fastq.gz" ]];
+    then
+      mv -v "~{srr_accession}_2.fastq.gz" "~{sample_id}_2.fastq.gz"
+    elif [[ -f "${output}_2.fastq.gz" ]];
+    then
+      mv -v "${output}_2.fastq.gz" "~{sample_id}_2.fastq.gz"
+    fi
+  >>> 
 
   output {
-    File read1=read_string("READ1")
-    File? read2=read_string("READ2")
+    File read1="~{sample_id}_1.fastq.gz"
+    File? read2="~{sample_id}_2.fastq.gz"
   }
 
   runtime {
